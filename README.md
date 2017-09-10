@@ -5,7 +5,7 @@ confic example:
 components => [
         ...
         'rabbit' => [
-  				'class' => 'app\components\Rabbit',
+          'class' => 'app\components\Rabbit',
           'host' => '127.0.0.1',
           'port' => '5672',
           'user' => 'guest',
