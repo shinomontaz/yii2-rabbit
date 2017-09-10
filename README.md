@@ -1,6 +1,7 @@
 # yii2-rabbit
 
 confic example:
+```php
 components => [
         ...
         'rabbit' => [
@@ -19,4 +20,4 @@ components => [
         ],
         ...
 ],
-        
+```
