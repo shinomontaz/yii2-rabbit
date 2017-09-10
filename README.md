@@ -12,9 +12,9 @@ components => [
           'password' => 'guest',
           'durable' => true,
           'exchange'  => [
-                'name' => 'ceb',
+                'name' => 'EXCHANGE NAME',
                 'type' => 'direct'
-            ],
+          ],
           'vhost' => '/',
           'worker' => path\to\worker::class,
         ],
