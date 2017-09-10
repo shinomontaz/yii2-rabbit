@@ -2,7 +2,7 @@
 
 confic example:
 ```php
-components => [
+'components' => [
         ...
         'rabbit' => [
           'class'       => 'app\components\Rabbit',
