@@ -103,7 +103,6 @@ class Rabbit extends Component {
                 return;
             }
             $processFlag = call_user_func($this->_worker, $message);
-            print_r( '$processFlag: '.$processFlag."\n" );
         }
     }
 
@@ -139,7 +138,7 @@ class Rabbit extends Component {
             $callbackClass = new $_worker();
         }
         if (!($callbackClass instanceof IConsumer)) {
-            throw new \Exception("{$_worker} should implements IConsumer.");
+            throw new \Exception("{$_worker} should implements IConsumer");
         }
         $this->_worker = [$callbackClass, 'execute'];
     }

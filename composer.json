@@ -1,0 +1,22 @@
+{
+    "name": "shinomontaz/yii2-rabbit",
+    "description": "yii2 rabbit extension",
+    "keywords": ["yii2", "rabbit"],
+    "type": "yii2-extension",
+    "license": "MIT",
+    "support": {
+        "source": "https://github.com/shinomontaz/yii2-rabbit"
+    },
+    "authors": [
+        {
+            "name": "Denis Rybakov",
+            "email": "shinomontaz@gmail.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "autoload": {
+        "psr-4": {
+            "shinomontaz\\": ""
+        }
+    }
+}
