@@ -1,6 +1,6 @@
 <?php
 
-namespace shinomontaz\rabbit;
+namespace shinomontaz\rabbitmq;
 
 use Yii;
 use yii\base\Component;
