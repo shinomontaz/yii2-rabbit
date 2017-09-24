@@ -13,6 +13,10 @@
             "email": "shinomontaz@gmail.com"
         }
     ],
+    "require-dev": {
+        "yiisoft/yii2": "*",
+        "phpunit/phpunit": "6.*"
+    },
     "minimum-stability": "dev",
     "autoload": {
         "psr-4": {

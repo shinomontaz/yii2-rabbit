@@ -1,29 +1,26 @@
 <?php
 
-namespace shinomontaz\yii2-rabbit;
+namespace shinomontaz\rabbit;
 
 use Yii;
 use yii\base\Component;
 use interfaces\IConsumer;
 
 class Rabbit extends Component {
+    public $_chunkSize = 50;
+    
     private $_host;
     private $_user;
     private $_port;
     private $_password;
-    private $_exchangeName;
-    private $_exchangeType;
-    private $_durable;
     private $_vhost;
-    private $_worker;
-    private $_queue;
-
-    public $_chunkSize = 50;
+    private $_exchanges = [];
+    private $_queues    = [];
+    private $_workers   = [];
+    private $_workerDefault;
 
     private $_connection;
     private $_channel;
-    private $_exchange;
-    private $_queues = [];
 
     public function __construct() { }
 
@@ -50,17 +47,8 @@ class Rabbit extends Component {
         return $this->_connection;
     }
 
-    private function getExchange() {
-        if( !$this->_exchange ) {
-            $this->_exchange   = new \AMQPExchange( $this->getChannel() );
-            $this->_exchange->setName( $this->_exchangeName );
-            $this->_exchange->setType( $this->_exchangeType );
-            if( $this->_durable ) {
-                $this->_exchange->setFlags(\AMQP_DURABLE);
-            }
-            $this->_exchange->declareExchange();
-        }
-        return $this->_exchange;
+    private function _getExchange( $name ) {
+        return $this->_exchanges[$name];
     }
 
     private function getChannel() {
@@ -71,41 +59,28 @@ class Rabbit extends Component {
     }
 
     private function getQueue( $queueName ) {
-        $this->getExchange();
-        if( !isset($this->_queues[$queueName]) || !$this->_queues[$queueName] ) {
-            $queue = new \AMQPQueue( $this->getChannel() );
-            $queue->setName( $queueName );
-            if( $this->_durable ) {
-                $queue->setFlags(\AMQP_DURABLE);
-            }
-            $queue->declareQueue();
-            $queue->bind( $this->_exchangeName, $queueName );
-            $this->_queues[$queueName] = $queue;
-        }
-
         return $this->_queues[$queueName];
     }
 
-    public function schedule($message, $key)
+    public function schedule($message, $exchange, $key)
     {
-        $this->getQueue( $key );
-        if( !$this->getExchange()->publish( (string)$message, $key ) ) {
-            throw new Exception('Message not sent!');
+        if( !$this->getExchange( $exchange )->publish( (string)$message, $key ) ) {
+            throw new \Exception('Message not sent!');
         }
     }
-
-    public function process($queue = '')
+    
+    public function process( $queueName )
     {
-        $i = 0;
-        while ($i++ < $this->_chunkSize && $message = $this->getQueue( $queue )->get(\AMQP_AUTOACK)) {
-            if (!$message) {
-                echo "not envelope \n";
-                return;
-            }
-            $processFlag = call_user_func($this->_worker, $message);
-        }
+      if( !isset( $this->_workers[$queueName] ) && !isset( $this->_workerDefault ) ) {
+        throw new \Exception('No worker attache');
+      }
+      $worker = isset( $this->_workers[$queueName] ) ? $this->_workers[$queueName] : $this->_workerDefault;
+      $i = 0;
+      while ($i++ <= $this->_chunkSize && $message = $this->getQueue( $name )->get(\AMQP_AUTOACK)) {
+        call_user_func($worker, $message);
+      }
     }
-
+    
     public function setHost( $_host ) {
         $this->_host = $_host;
     }
@@ -121,25 +96,51 @@ class Rabbit extends Component {
     public function setPassword( $_password ) {
         $this->_password = $_password;
     }
-    public function setExchange( $_exchange = [] ) {
-        $this->_exchangeName = $_exchange['name'];
-        $this->_exchangeType = $_exchange['type'];
-    }
-    public function setQueues( $_queueNames ) {
-        $this->_queueNames = $_queueNames;
-    }
     public function setVhost( $_vhost ) {
         $this->_vhost = $_vhost;
     }
-    public function setWorker( $_worker ) {
-        if (!class_exists($_worker)) {
-            $callbackClass = \Yii::$container->get($_worker);
-        } else {
-            $callbackClass = new $_worker();
+    
+    public function seLayout( $_layout ) {
+      foreach( $_layout as $exchangeName => $info ) {
+        $this->_exchanges[$exchangeName] = new \AMQPExchange( $this->getChannel() );
+        $this->_exchanges[$exchangeName]->setName( $exchangeName );
+        $this->_exchanges[$exchangeName]->setType( $info['type'] );
+        if( $info['durable'] ) {
+            $this->_exchanges[$exchangeName]->setFlags(\AMQP_DURABLE);
         }
+        $this->_exchanges[$exchangeName]->declareExchange();
+        
+        foreach( $info['queues'] as $queueName => $queueData ) {
+          $queue = new \AMQPQueue( $this->getChannel() );
+          $queue->setName( $queueName );
+          if( $queueData['durable'] ) {
+              $queue->setFlags(\AMQP_DURABLE);
+          }
+          $queue->declareQueue();
+          $queue->bind( $exchangeName, $queueName );
+          $this->_queues[$queueName] = $queue;
+          if( isset( $info['worker'] ) ) {
+            $callbackClass = new ($info['worker'])();
+            $this->_workers[ $queueName ] = $this->_createWorker( $info['worker'] );//[$callbackClass, 'execute'];
+          }
+        }
+        
+      }
+    }
+
+    public function setWorker( $_worker ) {
+        $callbackClass = new $_worker();
         if (!($callbackClass instanceof IConsumer)) {
             throw new \Exception("{$_worker} should implements IConsumer");
         }
-        $this->_worker = [$callbackClass, 'execute'];
+        $this->_workerDefault = [$callbackClass, 'execute'];
+    }
+    
+    private function _createWorker( $_class ) {
+        $callbackClass = new $_class();
+        if (!($callbackClass instanceof IConsumer)) {
+            throw new \Exception("{$_worker} should implements IConsumer");
+        }
+        return [$callbackClass, 'execute'];
     }
 }
