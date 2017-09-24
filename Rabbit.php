@@ -2,7 +2,6 @@
 
 namespace shinomontaz\rabbit;
 
-use Yii;
 use yii\base\Component;
 use interfaces\IConsumer;
 
@@ -30,7 +29,7 @@ class Rabbit extends Component {
         }
     }
 
-    private function getConnection() {
+    private function _getConnection() {
         if( !$this->_connection ) {
             $this->_connection = new \AMQPConnection();
             $this->_connection->setLogin($this->_user);
@@ -51,20 +50,20 @@ class Rabbit extends Component {
         return $this->_exchanges[$name];
     }
 
-    private function getChannel() {
+    private function _getChannel() {
         if( !$this->_channel ) {
-            $this->_channel    = new \AMQPChannel($this->getConnection());
+            $this->_channel    = new \AMQPChannel($this->_getConnection());
         }
         return $this->_channel;
     }
 
-    private function getQueue( $queueName ) {
+    private function _getQueue( $queueName ) {
         return $this->_queues[$queueName];
     }
 
     public function schedule($message, $exchange, $key)
     {
-        if( !$this->getExchange( $exchange )->publish( (string)$message, $key ) ) {
+        if( !$this->_getExchange( $exchange )->publish( (string)$message, $key ) ) {
             throw new \Exception('Message not sent!');
         }
     }
@@ -76,7 +75,7 @@ class Rabbit extends Component {
       }
       $worker = isset( $this->_workers[$queueName] ) ? $this->_workers[$queueName] : $this->_workerDefault;
       $i = 0;
-      while ($i++ <= $this->_chunkSize && $message = $this->getQueue( $name )->get(\AMQP_AUTOACK)) {
+      while ($i++ <= $this->_chunkSize && $message = $this->_getQueue( $queueName )->get(\AMQP_AUTOACK)) {
         call_user_func($worker, $message);
       }
     }
@@ -100,46 +99,40 @@ class Rabbit extends Component {
         $this->_vhost = $_vhost;
     }
     
-    public function seLayout( $_layout ) {
+    public function setLayout( $_layout ) {
       foreach( $_layout as $exchangeName => $info ) {
-        $this->_exchanges[$exchangeName] = new \AMQPExchange( $this->getChannel() );
+        $this->_exchanges[$exchangeName] = new \AMQPExchange( $this->_getChannel() );
         $this->_exchanges[$exchangeName]->setName( $exchangeName );
         $this->_exchanges[$exchangeName]->setType( $info['type'] );
-        if( $info['durable'] ) {
+        if( !isset( $info['durable'] ) || $info['durable'] ) {
             $this->_exchanges[$exchangeName]->setFlags(\AMQP_DURABLE);
         }
         $this->_exchanges[$exchangeName]->declareExchange();
         
         foreach( $info['queues'] as $queueName => $queueData ) {
-          $queue = new \AMQPQueue( $this->getChannel() );
+          $queue = new \AMQPQueue( $this->_getChannel() );
           $queue->setName( $queueName );
-          if( $queueData['durable'] ) {
+          if( !isset( $queueData['durable'] ) || $queueData['durable'] ) {
               $queue->setFlags(\AMQP_DURABLE);
           }
           $queue->declareQueue();
           $queue->bind( $exchangeName, $queueName );
           $this->_queues[$queueName] = $queue;
-          if( isset( $info['worker'] ) ) {
-            $callbackClass = new ($info['worker'])();
-            $this->_workers[ $queueName ] = $this->_createWorker( $info['worker'] );//[$callbackClass, 'execute'];
+          if( isset( $queueData['worker'] ) ) {
+            $this->_workers[ $queueName ] = $this->_createWorker( $queueData['worker'] );
           }
         }
-        
       }
     }
 
     public function setWorker( $_worker ) {
-        $callbackClass = new $_worker();
-        if (!($callbackClass instanceof IConsumer)) {
-            throw new \Exception("{$_worker} should implements IConsumer");
-        }
-        $this->_workerDefault = [$callbackClass, 'execute'];
+        $this->_workerDefault = $this->_createWorker( $_worker );
     }
     
     private function _createWorker( $_class ) {
         $callbackClass = new $_class();
-        if (!($callbackClass instanceof IConsumer)) {
-            throw new \Exception("{$_worker} should implements IConsumer");
+        if ( !($callbackClass instanceof interfaces\IConsumer) ) {
+            throw new \Exception("{$_class} should implements IConsumer");
         }
         return [$callbackClass, 'execute'];
     }

@@ -4,20 +4,35 @@ confic example:
 ```php
 'components' => [
         ...
-        'rabbit' => [
-          'class'       => 'app\components\Rabbit',
-          'host'        => '127.0.0.1',
-          'port'        => '5672',
-          'user'        => 'guest',
-          'password'    => 'guest',
-          'durable'     => true,
-          'exchange'    => [
-                'name'  => 'EXCHANGE NAME',
-                'type'  => 'direct'
-          ],
-          'vhost'       => '/',
-          'worker'      => path\to\worker::class,
+'rabbit' => [
+    'class' => 'shinomontaz\rabbit\Rabbit',
+    'host' => '<host>',
+    'port' => '<port>',
+    'user' => '<user>',
+    'password' => '<pass>',
+    'vhost' => '<vhost>',
+    'layout' => [
+    '<exchangeName1>' => [
+        'type' => '<direct>',
+        'durable' => <durable>,
+        'queues' => [
+            '<queueName1>' => [
+                'durable' => <durable>,
+                'type' => '<direct>',
+                'worker' => path\to\worker::class,
+            ],
         ],
-        ...
+    ]
+    ],
+    ],
+    ...
 ],
+```
+
+```php
+\Yii::$app->rabbit->schedule( $message, '<exchangeName>', 'routingKey');
+```
+
+```php
+php yii consoleController/process <queueName>
 ```
