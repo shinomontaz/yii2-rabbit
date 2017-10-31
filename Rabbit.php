@@ -78,6 +78,9 @@ class Rabbit extends Component {
       while ($i++ <= $this->_chunkSize && $message = $this->_getQueue( $queueName )->get(\AMQP_AUTOACK)) {
         call_user_func($worker, $message);
       }
+      if( $i == 1 ) {
+        sleep(10);
+      }
     }
     
     public function setHost( $_host ) {
